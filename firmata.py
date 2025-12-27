@@ -1,30 +1,41 @@
-import pyfirmata2  # <--- O '2' é fundamental aqui
+from pyfirmata2 import Arduino
 import time
 
-# Tente detectar a porta automaticamente ou force a 'COM3'
-# Para Windows, geralmente é 'COM3', 'COM4' etc.
-porta = "COM5" 
+def conectar_arduino():
+    print("\n[ BUSCANDO ] Procurando Arduino...")
+    board = Arduino(Arduino.AUTODETECT)
+    time.sleep(2)
+    print("[ OK ] Arduino conectado!")
+    return board
 
-print(f"Tentando conectar na {porta}...")
-
-try:
-    # Iniciando a placa com a versão 2
-    placa = pyfirmata2.Arduino(porta)
-    print("Conexão estabelecida!")
-
-    # Configura o pino 13 (LED interno do Arduino)
-    led = placa.get_pin('d:13:o') 
+def piscar_led(board):
+    led = board.get_pin('d:13:o')
+    print("[ RODANDO ] Pisca-pisca iniciado (Ctrl + C para sair)\n")
 
     while True:
         led.write(1)
-        print("Ligado")
-        time.sleep(0.5)
-        led.write(0)
-        print("Desligado")
-        time.sleep(0.5)
+        print("LED LIGADO")
+        time.sleep(1)
 
-except Exception as e:
-    print(f"Erro: {e}")
-finally:
-    if 'placa' in locals():
-        placa.exit()
+        led.write(0)
+        print("LED DESLIGADO")
+        time.sleep(1)
+
+while True:
+    board = None
+    try:
+        board = conectar_arduino()
+        piscar_led(board)
+
+    except KeyboardInterrupt:
+        print("\n[ SAÍDA ] Programa finalizado pelo usuário.")
+        break
+
+    except Exception:
+        print("\n[ ERRO ] Arduino desconectado. Tentando novamente em 3s...")
+        time.sleep(3)
+
+    finally:
+        if board:
+            board.exit()
+            print("[ INFO ] Conexão encerrada com segurança.")
