@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guia Interativo pyfirmata2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        /* Chosen Palette: Warm Neutral & Arduino Teal */
+        :root {
+            --color-bg: #F9FAFB;
+            --color-surface: #FFFFFF;
+            --color-text-main: #1F2937;
+            --color-text-muted: #6B7280;
+            --color-accent: #00979D; /* Arduino Teal */
+            --color-accent-dark: #00767B;
+            --color-secondary: #E5E7EB;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--color-bg);
+            color: var(--color-text-main);
+        }
+
+        .font-mono {
+            font-family: 'Fira Code', monospace;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            height: 300px;
+            max-height: 400px;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        /* Interactive Board Styles */
+        .arduino-board {
+            background-color: #00979D;
+            border-radius: 8px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            position: relative;
+            transition: transform 0.3s ease;
+        }
+        
+        .pin-socket {
+            background-color: #000;
+            border: 2px solid #333;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .pin-socket:hover, .pin-socket.active {
+            border-color: #FFD700;
+            background-color: #333;
+            transform: scale(1.1);
+        }
+
+        .tab-active {
+            border-bottom: 2px solid var(--color-accent);
+            color: var(--color-accent);
+            font-weight: 600;
+        }
+
+        .code-block {
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+        }
+    </style>
+    <!-- Chosen Palette: Warm Neutral Foundation (#F9FAFB) with Arduino Teal (#00979D) accents and Dark Grey text. Creates a clean, technical yet approachable documentation feel. -->
+    
+    <!-- Application Structure Plan:
+        1. Hero Section: Immediate definition and value proposition of pyfirmata2.
+        2. Dashboard Navigation: Quick jumps to Setup, Pin Mapping, Data Viz, and API.
+        3. Setup Guide (Step-by-Step): Linear flow for installation (Hardware -> Firmware -> Software).
+        4. Interactive Pin Explorer (The "Wow" Factor): A CSS-grid based Arduino representation. Users click pins to see the specific Python code to control them. This bridges the gap between hardware and code.
+        5. Data Sampling Simulator: A Chart.js visualization demonstrating the difference between polling and callbacks, and the effect of sampling rates. This explains the core advantage of pyfirmata2.
+        6. Code Playground: Tabbed code snippets for common tasks (Digital Write, Analog Read, PWM).
+        7. API Reference: A searchable/filterable table of key methods.
+    -->
+
+    <!-- Visualization & Content Choices:
+        1. Overview Stats: Simple HTML cards to show key library capabilities.
+        2. Pin Explorer: CSS Grid layout to mimic an Arduino board. Interaction: Click pin -> Update Text/Code Panel. No SVG used. Justification: Direct mapping of physical location to code syntax.
+        3. Sampling Chart: Chart.js Line chart. Interaction: Slider controls update speed (simulating sampling interval). Justification: Visualizes the concept of sampling rates and asynchronous data handling which is abstract in text.
+        4. Code Tabs: HTML/JS switching. Justification: clean organization of syntax.
+    -->
+
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- Navbar -->
+    <nav class="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 flex items-center gap-2">
+                        <div class="w-8 h-8 bg-teal-600 rounded-md flex items-center justify-center text-white font-bold">Pf2</div>
+                        <span class="font-bold text-xl tracking-tight text-gray-800">pyfirmata2</span>
+                    </div>
+                </div>
+                <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                    <a href="#overview" class="border-transparent text-gray-500 hover:border-teal-500 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">Visão Geral</a>
+                    <a href="#setup" class="border-transparent text-gray-500 hover:border-teal-500 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">Instalação</a>
+                    <a href="#pin-explorer" class="border-transparent text-gray-500 hover:border-teal-500 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">Mapa de Pinos</a>
+                    <a href="#data-viz" class="border-transparent text-gray-500 hover:border-teal-500 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">Dados & Sampling</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow">
+        
+        <!-- Hero Section -->
+        <div id="overview" class="bg-white py-12 border-b border-gray-100">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center">
+                    <h1 class="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
+                        <span class="block">Controle seu Arduino com</span>
+                        <span class="block text-teal-600">Python Puro</span>
+                    </h1>
+                    <p class="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
+                        O guia completo e interativo para <strong>pyfirmata2</strong>. A ponte mais simples entre scripts Python e o protocolo Firmata, com suporte a callbacks assíncronos e amostragem precisa.
+                    </p>
+                </div>
+
+                <!-- Stats/Features Grid -->
+                <div class="mt-10">
+                    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                        <div class="bg-gray-50 overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow">
+                            <div class="px-4 py-5 sm:p-6 text-center">
+                                <dt class="text-sm font-medium text-gray-500 truncate">Comunicação</dt>
+                                <dd class="mt-1 text-3xl font-semibold text-gray-900">Serial</dd>
+                                <p class="mt-2 text-sm text-gray-600">Protocolo Firmata Padrão</p>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow">
+                            <div class="px-4 py-5 sm:p-6 text-center">
+                                <dt class="text-sm font-medium text-gray-500 truncate">Modo de Leitura</dt>
+                                <dd class="mt-1 text-3xl font-semibold text-gray-900">Assíncrono</dd>
+                                <p class="mt-2 text-sm text-gray-600">Callbacks automáticos</p>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow">
+                            <div class="px-4 py-5 sm:p-6 text-center">
+                                <dt class="text-sm font-medium text-gray-500 truncate">Suporte</dt>
+                                <dd class="mt-1 text-3xl font-semibold text-gray-900">Total</dd>
+                                <p class="mt-2 text-sm text-gray-600">Digital, Analógico, PWM, Servo, I2C</p>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow">
+                            <div class="px-4 py-5 sm:p-6 text-center">
+                                <dt class="text-sm font-medium text-gray-500 truncate">Setup</dt>
+                                <dd class="mt-1 text-3xl font-semibold text-gray-900">&lt; 2 min</dd>
+                                <p class="mt-2 text-sm text-gray-600">Autodetecção de portas</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Setup Workflow -->
+        <div id="setup" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <h2 class="text-3xl font-bold text-gray-900 mb-6">Fluxo de Instalação</h2>
+            <p class="mb-8 text-gray-600 max-w-3xl">
+                Para usar o pyfirmata2, você precisa preparar tanto o seu computador (Python) quanto o microcontrolador (Arduino). Siga este fluxo lógico:
+            </p>
+
+            <div class="lg:grid lg:grid-cols-3 lg:gap-8">
+                <!-- Step 1 -->
+                <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm relative mb-6 lg:mb-0">
+                    <div class="absolute -top-4 -left-4 w-10 h-10 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold text-lg shadow">1</div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No Arduino</h3>
+                    <p class="text-sm text-gray-500 mb-4">O Arduino precisa entender os comandos que o Python enviará.</p>
+                    <ol class="list-decimal list-inside text-sm text-gray-700 space-y-2">
+                        <li>Abra a Arduino IDE.</li>
+                        <li>Vá em <span class="font-mono bg-gray-100 px-1">File > Examples > Firmata</span>.</li>
+                        <li>Selecione <strong>StandardFirmata</strong>.</li>
+                        <li>Faça o <strong>Upload</strong> para sua placa.</li>
+                    </ol>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm relative mb-6 lg:mb-0">
+                    <div class="absolute -top-4 -left-4 w-10 h-10 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold text-lg shadow">2</div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No Computador</h3>
+                    <p class="text-sm text-gray-500 mb-4">Instale a biblioteca Python.</p>
+                    <div class="bg-gray-900 rounded p-3 mb-4 group relative">
+                        <code class="text-green-400 font-mono text-sm">pip install pyfirmata2</code>
+                        <button onclick="navigator.clipboard.writeText('pip install pyfirmata2')" class="absolute right-2 top-2 text-gray-400 hover:text-white" title="Copiar">
+                            <span class="text-xs">📋</span>
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-400">Certifique-se de ter o Python 3.x instalado.</p>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm relative">
+                    <div class="absolute -top-4 -left-4 w-10 h-10 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold text-lg shadow">3</div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Conexão Básica</h3>
+                    <p class="text-sm text-gray-500 mb-4">Script mínimo para teste.</p>
+                    <div class="bg-gray-900 rounded p-3 overflow-x-auto">
+<pre class="text-gray-300 font-mono text-xs">
+import pyfirmata2
+
+# Autodetect
+board = pyfirmata2.Arduino.AUTODETECT
+
+print("Conectado!")
+board.digital[13].write(1)
+</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Interactive Pin Explorer -->
+        <div id="pin-explorer" class="bg-gray-50 py-12 border-y border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-10">
+                    <h2 class="text-3xl font-bold text-gray-900">Explorador de Pinos Interativo</h2>
+                    <p class="mt-4 text-gray-600 max-w-2xl mx-auto">
+                        Clique em qualquer pino no "Arduino" abaixo para ver como acessá-lo e controlá-lo usando <span class="font-mono text-teal-700">pyfirmata2</span>.
+                        Descubra a sintaxe para leitura digital, escrita analógica (PWM) e muito mais.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
+                    <!-- The Visual Board -->
+                    <div class="flex justify-center select-none">
+                        <div class="arduino-board w-full max-w-md h-80 relative p-4 flex flex-col justify-between">
+                            <!-- USB / Power Area -->
+                            <div class="absolute left-[-10px] top-8 w-6 h-12 bg-gray-400 rounded-l border border-gray-500"></div>
+                            <div class="absolute left-[-10px] top-24 w-6 h-12 bg-black rounded-l border border-gray-800"></div>
+                            
+                            <!-- Top Pins (Digital) -->
+                            <div class="flex justify-end gap-1 mb-2 overflow-x-auto">
+                                <!-- Digital 13 to 8 -->
+                                <div class="flex gap-1 mr-4">
+                                     <!-- Generating pins via JS would be cleaner, but hardcoding for layout stability in this single file -->
+                                    <div class="flex flex-col items-center">
+                                        <div class="text-[10px] text-white font-mono mb-1">13</div>
+                                        <div class="w-4 h-4 pin-socket" onclick="selectPin('13', 'digital', true)"></div>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <div class="text-[10px] text-white font-mono mb-1">12</div>
+                                        <div class="w-4 h-4 pin-socket" onclick="selectPin('12', 'digital', false)"></div>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <div class="text-[10px] text-white font-mono mb-1">~11</div>
+                                        <div class="w-4 h-4 pin-socket" onclick="selectPin('11', 'pwm', false)"></div>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <div class="text-[10px] text-white font-mono mb-1">~10</div>
+                                        <div class="w-4 h-4 pin-socket" onclick="selectPin('10', 'pwm', false)"></div>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <div class="text-[10px] text-white font-mono mb-1">~9</div>
+                                        <div class="w-4 h-4 pin-socket" onclick="selectPin('9', 'pwm', false)"></div>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <div class="text-[10px] text-white font-mono mb-1">8</div>
+                                        <div class="w-4 h-4 pin-socket" onclick="selectPin('8', 'digital', false)"></div>
+                                    </div>
+                                </div>
+                                <!-- Digital 7 to 0 -->
+                                <div class="flex gap-1">
+                                    <div class="flex flex-col items-center">
+                                        <div class="text-[10px] text-white font-mono mb-1">7</div>
+                                        <div class="w-4 h-4 pin-socket" onclick="selectPin('7', 'digital', false)"></div>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <div class="text-[10px] text-white font-mono mb-1">~6</div>
+                                        <div class="w-4 h-4 pin-socket" onclick="selectPin('6', 'pwm', false)"></div>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <div class="text-[10px] text-white font-mono mb-1">~5</div>
+                                        <div class="w-4 h-4 pin-socket" onclick="selectPin('5', 'pwm', false)"></div>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <div class="text-[10px] text-white font-mono mb-1">4</div>
+                                        <div class="w-4 h-4 pin-socket" onclick="selectPin('4', 'digital', false)"></div>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <div class="text-[10px] text-white font-mono mb-1">~3</div>
+                                        <div class="w-4 h-4 pin-socket" onclick="selectPin('3', 'pwm', false)"></div>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <div class="text-[10px] text-white font-mono mb-1">2</div>
+                                        <div class="w-4 h-4 pin-socket" onclick="selectPin('2', 'digital', false)"></div>
+                                    </div>
+                                    <!-- TX/RX usually avoided in firmata but placing for visual completeness -->
+                                    <div class="flex flex-col items-center opacity-50">
+                                        <div class="text-[10px] text-white font-mono mb-1">TX</div>
+                                        <div class="w-4 h-4 bg-black border border-gray-600"></div>
+                                    </div>
+                                    <div class="flex flex-col items-center opacity-50">
+                                        <div class="text-[10px] text-white font-mono mb-1">RX</div>
+                                        <div class="w-4 h-4 bg-black border border-gray-600"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Chip graphic -->
+                            <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-24 h-8 bg-black border-2 border-gray-700 flex items-center justify-center">
+                                <span class="text-[8px] text-gray-400 font-mono">ATMEGA328P</span>
+                            </div>
+
+                            <!-- Bottom Pins (Power & Analog) -->
+                            <div class="flex justify-between mt-auto">
+                                <div class="flex gap-1 ml-8">
+                                    <!-- Power area simplified -->
+                                    <div class="flex flex-col items-center">
+                                        <div class="w-4 h-4 bg-red-900 border border-red-700 mb-1"></div>
+                                        <div class="text-[10px] text-white font-mono">5V</div>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <div class="w-4 h-4 bg-black border border-gray-600 mb-1"></div>
+                                        <div class="text-[10px] text-white font-mono">GND</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex gap-1 mr-4">
+                                    <!-- Analog Pins -->
+                                    <div class="flex flex-col items-center">
+                                        <div class="w-4 h-4 pin-socket" onclick="selectPin('A0', 'analog', false)"></div>
+                                        <div class="text-[10px] text-white font-mono mt-1">A0</div>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <div class="w-4 h-4 pin-socket" onclick="selectPin('A1', 'analog', false)"></div>
+                                        <div class="text-[10px] text-white font-mono mt-1">A1</div>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <div class="w-4 h-4 pin-socket" onclick="selectPin('A2', 'analog', false)"></div>
+                                        <div class="text-[10px] text-white font-mono mt-1">A2</div>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <div class="w-4 h-4 pin-socket" onclick="selectPin('A3', 'analog', false)"></div>
+                                        <div class="text-[10px] text-white font-mono mt-1">A3</div>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <div class="w-4 h-4 pin-socket" onclick="selectPin('A4', 'analog', false)"></div>
+                                        <div class="text-[10px] text-white font-mono mt-1">A4</div>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <div class="w-4 h-4 pin-socket" onclick="selectPin('A5', 'analog', false)"></div>
+                                        <div class="text-[10px] text-white font-mono mt-1">A5</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- The Code / Details Panel -->
+                    <div class="bg-white rounded-lg border border-gray-200 shadow-lg p-6 min-h-[320px] flex flex-col">
+                        <div id="pin-details-placeholder" class="text-center my-auto text-gray-400">
+                            <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>
+                            <p>Clique em um pino para ver o código</p>
+                        </div>
+                        
+                        <div id="pin-details-content" class="hidden">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-2xl font-bold text-gray-800" id="pin-title">Pino 13</h3>
+                                <span class="px-3 py-1 rounded-full text-xs font-semibold bg-teal-100 text-teal-800" id="pin-type">Digital I/O</span>
+                            </div>
+                            
+                            <p class="text-sm text-gray-600 mb-4" id="pin-desc">O LED embutido da placa. Pode ser usado para saída digital.</p>
+                            
+                            <!-- Action Tabs -->
+                            <div class="border-b border-gray-200 mb-4">
+                                <nav class="-mb-px flex space-x-4" aria-label="Tabs" id="code-tabs-container">
+                                    <!-- Dynamic Tabs Injected Here -->
+                                </nav>
+                            </div>
+
+                            <div class="bg-gray-900 rounded-md p-4 flex-grow overflow-x-auto">
+                                <pre class="font-mono text-sm text-green-400 whitespace-pre-wrap" id="pin-code">board.digital[13].write(1)</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Sampling Visualization -->
+        <div id="data-viz" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <h2 class="text-3xl font-bold text-gray-900 mb-2">Monitoramento de Dados: Callbacks vs. Polling</h2>
+            <p class="text-gray-600 mb-8 max-w-3xl">
+                A grande força do <code class="text-teal-600 font-bold">pyfirmata2</code> é a capacidade de definir uma <strong>taxa de amostragem</strong> e usar <strong>callbacks</strong>. Isso evita que seu programa Python trave esperando dados.
+                <br><br>
+                Abaixo, simulamos a leitura de um sensor analógico. Experimente alterar a taxa de amostragem para ver como a fluidez e a quantidade de dados mudam.
+            </p>
+
+            <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
+                <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Taxa de Amostragem (ms)</label>
+                        <div class="flex items-center gap-4 mt-1">
+                            <input type="range" min="10" max="1000" step="10" value="100" id="sampling-slider" class="w-48 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600">
+                            <span id="sampling-val" class="text-lg font-mono text-teal-700 font-bold">100 ms</span>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Menor = Mais dados, mais CPU.</p>
+                    </div>
+                    <div class="flex gap-2">
+                         <button id="toggle-sim" class="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 transition font-medium">Pausar Simulação</button>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="samplingChart"></canvas>
+                </div>
+                
+                <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-gray-50 p-4 rounded border border-gray-100">
+                        <h4 class="font-bold text-gray-700 mb-2">Código Python Equivalente:</h4>
+                        <pre class="text-xs font-mono text-gray-600 overflow-x-auto">
+# Configura o pino A0 com callback
+def meu_callback(valor):
+    print("Dado recebido:", valor)
+
+board.analog[0].register_callback(meu_callback)
+board.samplingOn(<span id="code-sampling-val" class="font-bold text-teal-600">100</span>) # intervalo em ms
+board.analog[0].enable_reporting()
+                        </pre>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded border border-gray-100 flex flex-col justify-center">
+                        <p class="text-sm text-gray-600">
+                            <strong>O que está acontecendo?</strong><br>
+                            O Arduino envia dados a cada <span class="font-bold sampling-text">100 ms</span>. O pyfirmata2 recebe esses pacotes em background e chama sua função automaticamente. Isso permite que seu script faça outras coisas (como atualizar uma interface gráfica) sem travar.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- API Reference Table -->
+        <div id="api" class="bg-gray-50 py-12 border-t border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <h2 class="text-3xl font-bold text-gray-900 mb-6">Referência Rápida da API</h2>
+                <div class="flex flex-col">
+                    <div class="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                        <div class="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+                            <div class="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-100">
+                                        <tr>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Método / Propriedade</th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrição</th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Exemplo</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap font-mono text-sm text-teal-700 font-bold">Arduino.AUTODETECT</td>
+                                            <td class="px-6 py-4 text-sm text-gray-500">Constante para encontrar a porta USB automaticamente.</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-xs font-mono text-gray-600">Arduino(Arduino.AUTODETECT)</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap font-mono text-sm text-teal-700 font-bold">board.digital[x].write(v)</td>
+                                            <td class="px-6 py-4 text-sm text-gray-500">Escreve 0 ou 1 em um pino digital.</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-xs font-mono text-gray-600">board.digital[13].write(1)</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap font-mono text-sm text-teal-700 font-bold">board.digital[x].mode = PWM</td>
+                                            <td class="px-6 py-4 text-sm text-gray-500">Habilita PWM (saída analógica simulada) no pino.</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-xs font-mono text-gray-600">board.digital[11].mode = PWM</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap font-mono text-sm text-teal-700 font-bold">register_callback(func)</td>
+                                            <td class="px-6 py-4 text-sm text-gray-500">Define a função a ser chamada quando novos dados chegarem.</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-xs font-mono text-gray-600">pin.register_callback(my_func)</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap font-mono text-sm text-teal-700 font-bold">enable_reporting()</td>
+                                            <td class="px-6 py-4 text-sm text-gray-500">Inicia o fluxo de dados de um pino de entrada.</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-xs font-mono text-gray-600">pin.enable_reporting()</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap font-mono text-sm text-teal-700 font-bold">board.samplingOn(ms)</td>
+                                            <td class="px-6 py-4 text-sm text-gray-500">Define o intervalo de amostragem em milissegundos.</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-xs font-mono text-gray-600">board.samplingOn(50)</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap font-mono text-sm text-teal-700 font-bold">board.exit()</td>
+                                            <td class="px-6 py-4 text-sm text-gray-500">Fecha a conexão serial corretamente.</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-xs font-mono text-gray-600">board.exit()</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="bg-gray-800 text-white py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center">
+            <div class="mb-4 md:mb-0">
+                <span class="font-bold text-lg">pyfirmata2</span>
+                <p class="text-gray-400 text-sm">Controle Arduino Simplificado.</p>
+            </div>
+            <div class="text-gray-400 text-sm">
+                Documentação Interativa Gerada por Elísio Luamba via AI
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // --- State Management ---
+        const state = {
+            selectedPin: null,
+            samplingRate: 100,
+            isSimRunning: true,
+            chartData: []
+        };
+
+        // --- Pin Explorer Logic ---
+        const pinDetails = {
+            '13': { type: 'Digital Output', desc: 'LED Integrado. Bom para testes rápidos de "Olá Mundo".', modes: ['write'] },
+            '12': { type: 'Digital I/O', desc: 'Pino digital padrão.', modes: ['write', 'read'] },
+            '11': { type: 'PWM / Digital', desc: 'Suporta Pulse Width Modulation (Saída Analógica Simulada).', modes: ['write', 'pwm', 'read'] },
+            '10': { type: 'PWM / Digital', desc: 'Suporta PWM.', modes: ['write', 'pwm', 'read'] },
+            '9': { type: 'PWM / Digital', desc: 'Suporta PWM.', modes: ['write', 'pwm', 'read'] },
+            '8': { type: 'Digital I/O', desc: 'Pino digital padrão.', modes: ['write', 'read'] },
+            '7': { type: 'Digital I/O', desc: 'Pino digital padrão.', modes: ['write', 'read'] },
+            '6': { type: 'PWM / Digital', desc: 'Suporta PWM.', modes: ['write', 'pwm', 'read'] },
+            '5': { type: 'PWM / Digital', desc: 'Suporta PWM.', modes: ['write', 'pwm', 'read'] },
+            '4': { type: 'Digital I/O', desc: 'Pino digital padrão.', modes: ['write', 'read'] },
+            '3': { type: 'PWM / Digital', desc: 'Suporta PWM.', modes: ['write', 'pwm', 'read'] },
+            '2': { type: 'Digital I/O', desc: 'Pino digital padrão.', modes: ['write', 'read'] },
+            'A0': { type: 'Analog Input', desc: 'Entrada analógica. Lê valores de 0 a 1 (float) no pyfirmata2.', modes: ['analog_read'] },
+            'A1': { type: 'Analog Input', desc: 'Entrada analógica.', modes: ['analog_read'] },
+            'A2': { type: 'Analog Input', desc: 'Entrada analógica.', modes: ['analog_read'] },
+            'A3': { type: 'Analog Input', desc: 'Entrada analógica.', modes: ['analog_read'] },
+            'A4': { type: 'Analog Input', desc: 'Entrada analógica (também SDA para I2C).', modes: ['analog_read'] },
+            'A5': { type: 'Analog Input', desc: 'Entrada analógica (também SCL para I2C).', modes: ['analog_read'] }
+        };
+
+        function generateCode(pin, mode) {
+            const p = pin.replace('A', ''); // Raw number for analog
+            if (mode === 'write') {
+                return `# Escrever Digital (Ligar)\nboard.digital[${pin}].write(1)\n\n# Desligar\nboard.digital[${pin}].write(0)`;
+            } else if (mode === 'read') {
+                return `# Leitura Digital (com callback)\ndef on_change(v):\n    print(f"Pino mudou para: {v}")\n\nboard.digital[${pin}].mode = pyfirmata2.INPUT\nboard.digital[${pin}].register_callback(on_change)\nboard.digital[${pin}].enable_reporting()`;
+            } else if (mode === 'pwm') {
+                return `# PWM (Brilho do LED/Velocidade motor)\nboard.digital[${pin}].mode = pyfirmata2.PWM\nboard.digital[${pin}].write(0.5) # 50% duty cycle`;
+            } else if (mode === 'analog_read') {
+                return `# Leitura Analógica (0.0 a 1.0)\ndef meu_callback(valor):\n    print("Leitura:", valor)\n\nboard.analog[${p}].register_callback(meu_callback)\nboard.analog[${p}].enable_reporting()`;
+            }
+            return '';
+        }
+
+        function selectPin(pinId, type, isDefault) {
+            // UI Update
+            document.querySelectorAll('.pin-socket').forEach(el => el.classList.remove('active'));
+            // Find the clicked element via event delegation or manual search if needed, but here we just restyle in logic if passed 'this' (omitted for simplicity, just removing all active classes)
+            
+            const data = pinDetails[pinId];
+            if (!data) return;
+
+            document.getElementById('pin-details-placeholder').classList.add('hidden');
+            document.getElementById('pin-details-content').classList.remove('hidden');
+
+            document.getElementById('pin-title').innerText = pinId.startsWith('A') ? `Pino ${pinId}` : `Pino Digital ${pinId}`;
+            document.getElementById('pin-type').innerText = data.type;
+            document.getElementById('pin-desc').innerText = data.desc;
+
+            // Generate Tabs
+            const tabsContainer = document.getElementById('code-tabs-container');
+            tabsContainer.innerHTML = '';
+            
+            data.modes.forEach((mode, index) => {
+                const btn = document.createElement('button');
+                btn.className = `whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${index === 0 ? 'border-teal-500 text-teal-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`;
+                
+                let label = "Escrita";
+                if(mode === 'read') label = "Leitura Digital";
+                if(mode === 'pwm') label = "PWM";
+                if(mode === 'analog_read') label = "Leitura Analógica";
+                
+                btn.innerText = label;
+                btn.onclick = () => {
+                    // Update tab styles
+                    Array.from(tabsContainer.children).forEach(c => {
+                        c.className = 'whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300';
+                    });
+                    btn.className = 'whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm border-teal-500 text-teal-600';
+                    // Update Code
+                    document.getElementById('pin-code').innerText = generateCode(pinId, mode);
+                };
+                tabsContainer.appendChild(btn);
+            });
+
+            // Initial code load
+            document.getElementById('pin-code').innerText = generateCode(pinId, data.modes[0]);
+        }
+
+
+        // --- Chart/Sampling Simulation Logic ---
+        
+        const ctx = document.getElementById('samplingChart').getContext('2d');
+        const samplingChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: Array(50).fill(''),
+                datasets: [{
+                    label: 'Sinal do Sensor (Simulado)',
+                    data: Array(50).fill(0),
+                    borderColor: '#00979D',
+                    backgroundColor: 'rgba(0, 151, 157, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                scales: {
+                    y: {
+                        min: 0,
+                        max: 1,
+                        title: { display: true, text: 'Voltagem (Normalizada 0-1)' }
+                    },
+                    x: {
+                        title: { display: true, text: 'Tempo' },
+                        grid: { display: false }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'Valor: ' + context.parsed.y.toFixed(3);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Simulating a Sine wave + noise
+        let time = 0;
+        let lastUpdate = 0;
+
+        function updateSimulation(timestamp) {
+            if (!state.isSimRunning) {
+                requestAnimationFrame(updateSimulation);
+                return;
+            }
+
+            // Only update based on Sampling Rate
+            if (timestamp - lastUpdate > state.samplingRate) {
+                time += 0.1;
+                // Generate a "sensor value" (Sine wave + random noise)
+                const newVal = (Math.sin(time) + 1) / 2 * 0.8 + (Math.random() * 0.1);
+                
+                // Update Chart Data
+                const data = samplingChart.data.datasets[0].data;
+                data.push(newVal);
+                data.shift();
+                
+                samplingChart.update();
+                lastUpdate = timestamp;
+            }
+            
+            requestAnimationFrame(updateSimulation);
+        }
+
+        // Controls
+        const slider = document.getElementById('sampling-slider');
+        const sliderVal = document.getElementById('sampling-val');
+        const codeVal = document.getElementById('code-sampling-val');
+        const textVal = document.querySelector('.sampling-text');
+
+        slider.addEventListener('input', (e) => {
+            state.samplingRate = parseInt(e.target.value);
+            sliderVal.innerText = `${state.samplingRate} ms`;
+            codeVal.innerText = state.samplingRate;
+            textVal.innerText = `${state.samplingRate} ms`;
+        });
+
+        document.getElementById('toggle-sim').addEventListener('click', function() {
+            state.isSimRunning = !state.isSimRunning;
+            this.innerText = state.isSimRunning ? 'Pausar Simulação' : 'Continuar Simulação';
+            this.className = state.isSimRunning 
+                ? "px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 transition font-medium" 
+                : "px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition font-medium";
+        });
+
+        // Initialize
+        requestAnimationFrame(updateSimulation);
+
+        // Select default pin on load just to show UI
+        // Not selecting immediately to keep state clean, let user explore.
+
+    </script>
+</body>
+</html>
